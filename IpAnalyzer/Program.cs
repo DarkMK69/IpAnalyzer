@@ -1,6 +1,9 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
 using IpAnalyzer.Interfaces;
 using IpAnalyzer.Services;
+using IpAnalyzer.Models;
+using IpAnalyzer.Configuration;
 
 namespace IpAnalyzer
 {
@@ -10,21 +13,31 @@ namespace IpAnalyzer
         {
             try
             {
+                var basePath = AppDomain.CurrentDomain.BaseDirectory;
+                
+                var configBuilder = new ConfigurationBuilder()
+                    .SetBasePath(basePath)
+                    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                    .Build();
+
+                var appConfig = new AppConfig();
+                configBuilder.Bind(appConfig);
 
                 var services = new ServiceCollection();
-                ConfigureServices(services);
+                ConfigureServices(services, appConfig);
 
                 var serviceProvider = services.BuildServiceProvider();
 
-                string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
-                string projectRoot = Directory.GetParent(baseDirectory)?.Parent?.Parent?.Parent?.FullName ?? ".";
-                string ipFilePath = Path.Combine(projectRoot, "ip_addresses.txt");
-                
 
-                if (!File.Exists(ipFilePath))
-                {
-                    ipFilePath = "ip_addresses.txt";
-                }
+                var ipFilePath = Path.IsPathRooted(appConfig.Paths.IpAddressesFile) 
+                    ? appConfig.Paths.IpAddressesFile 
+                    : Path.GetFullPath(Path.Combine(basePath, appConfig.Paths.IpAddressesFile));
+                    
+                var outputDirectory = Path.IsPathRooted(appConfig.Paths.OutputDirectory)
+                    ? appConfig.Paths.OutputDirectory
+                    : Path.GetFullPath(Path.Combine(basePath, appConfig.Paths.OutputDirectory));
+                    
+                var apiUrl = appConfig.ApiSettings.IpInfoUrl;
 
                 Console.WriteLine("Загрузка IP адресов из файла...");
                 var addressProvider = new FileIpAddressProvider(ipFilePath);
@@ -34,10 +47,28 @@ namespace IpAnalyzer
 
                 var httpClientFactory = serviceProvider.GetRequiredService<IHttpClientFactory>();
                 var httpClient = httpClientFactory.CreateClient();
-                var ipInfoClient = new HttpInfoClient(httpClient, "https://ipinfo.io");
+                var ipInfoClient = new HttpInfoClient(httpClient, apiUrl);
 
-                var statisticsService = new IpStatisticsService(ipAddresses, ipInfoClient);
+                Console.WriteLine("Получение информации об IP адресах...");
+                var ipInfoList = new List<IpInfoDto>();
 
+                foreach (var ip in ipAddresses)
+                {
+                    var ipInfo = await ipInfoClient.GetInfoAsync(ip);
+                    if (ipInfo != null)
+                    {
+                        ipInfoList.Add(ipInfo);
+                        Console.WriteLine($"  ✓ {ip} -> {ipInfo.Country}, {ipInfo.City}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"  ✗ {ip} -> ошибка получения данных");
+                    }
+                }
+
+                Console.WriteLine($"✓ Обработано {ipInfoList.Count} из {ipAddresses.Count()} IP адресов\n");
+
+                var statisticsService = new IpStatisticsService(ipInfoList);
                 await statisticsService.ProcessAsync();
 
                 var publisher = new ConsoleIpStatisticsPublisher();
@@ -47,21 +78,21 @@ namespace IpAnalyzer
                 await publisher.PublishAsync(statisticsService.SortedCityIpDetails);
 
 
-                var filePublisher = new FileIpStatisticsPublisher(Path.Combine(projectRoot, "output"));
-                Console.WriteLine("\n Выгрузка данных в файлы...");
+                var filePublisher = new FileIpStatisticsPublisher(outputDirectory);
+                Console.WriteLine("\n📁 Выгрузка данных в файлы...");
                 await filePublisher.PublishAsync(statisticsService.SortedCountryIpDetails);
                 await filePublisher.PublishAsync(statisticsService.SortedCityIpDetails);
 
-                var markdownPublisher = new MarkdownIpStatisticsPublisher(Path.Combine(projectRoot, "output"));
-                Console.WriteLine("\n Генерация Markdown отчета...");
+                var markdownPublisher = new MarkdownIpStatisticsPublisher(outputDirectory);
+                Console.WriteLine("\n📋 Генерация Markdown отчета...");
                 await markdownPublisher.PublishAsync(statisticsService.SortedCountryIpDetails);
                 await markdownPublisher.PublishAsync(statisticsService.SortedCityIpDetails);
 
-                Console.WriteLine("\n Анализ завершен!");
+                Console.WriteLine("\n✅ Анализ завершен!");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($" Ошибка: {ex.Message}");
+                Console.WriteLine($"❌ Ошибка: {ex.Message}");
                 Environment.Exit(1);
             }
         }
@@ -69,7 +100,7 @@ namespace IpAnalyzer
         /// <summary>
         /// Настройка сервисов для DI контейнера
         /// </summary>
-        private static void ConfigureServices(ServiceCollection services)
+        private static void ConfigureServices(ServiceCollection services, AppConfig appConfig)
         {
             // HttpClientFactory для создания HttpClient
             services.AddHttpClient();

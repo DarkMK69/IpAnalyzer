@@ -1,0 +1,23 @@
+[
+  {
+    "City": "Düsseldorf",
+    "Region": "North Rhine-Westphalia",
+    "CountryCode": "DE",
+    "Count": 1,
+    "Percentage": 33.33333333333333
+  },
+  {
+    "City": "Falkenstein",
+    "Region": "Saxony",
+    "CountryCode": "DE",
+    "Count": 1,
+    "Percentage": 33.33333333333333
+  },
+  {
+    "City": "Frankfurt am Main",
+    "Region": "Hesse",
+    "CountryCode": "DE",
+    "Count": 1,
+    "Percentage": 33.33333333333333
+  }
+]

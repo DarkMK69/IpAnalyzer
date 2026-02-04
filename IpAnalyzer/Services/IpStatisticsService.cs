@@ -1,4 +1,3 @@
-using System.Net;
 using System.Collections.Immutable;
 using IpAnalyzer.Interfaces;
 using IpAnalyzer.Models;
@@ -6,57 +5,33 @@ using IpAnalyzer.Models;
 namespace IpAnalyzer.Services
 {
     /// <summary>
-    /// Сервис для обработки и анализа IP статистики
+    /// Сервис для анализа и обработки статистики IP адресов
+    /// Получает уже готовый набор данных и рассчитывает статистику
     /// </summary>
     public class IpStatisticsService : IIpStatisticsService
     {
-        private readonly IEnumerable<IPAddress> _ipAddresses;
-        private readonly IIpInfoClient _ipInfoClient;
-        private readonly List<IpInfoDto> _ipInfoList;
+        private readonly IEnumerable<IpInfoDto> _ipInfoList;
         private ImmutableList<CountryIpDetails> _sortedCountryDetails = ImmutableList<CountryIpDetails>.Empty;
         private ImmutableList<CityIpDetails> _sortedCityDetails = ImmutableList<CityIpDetails>.Empty;
 
-        public IpStatisticsService(IEnumerable<IPAddress> ipAddresses, IIpInfoClient ipInfoClient)
+        /// <summary>
+        /// Инициализирует сервис с готовым набором данных об IP адресах
+        /// </summary>
+        public IpStatisticsService(IEnumerable<IpInfoDto> ipInfoList)
         {
-            _ipAddresses = ipAddresses ?? throw new ArgumentNullException(nameof(ipAddresses));
-            _ipInfoClient = ipInfoClient ?? throw new ArgumentNullException(nameof(ipInfoClient));
-            _ipInfoList = new List<IpInfoDto>();
+            _ipInfoList = ipInfoList ?? throw new ArgumentNullException(nameof(ipInfoList));
         }
 
         public ImmutableList<CountryIpDetails> SortedCountryIpDetails => _sortedCountryDetails;
         public ImmutableList<CityIpDetails> SortedCityIpDetails => _sortedCityDetails;
 
         /// <summary>
-        /// Обработать все IP адреса и рассчитать статистику
+        /// Рассчитать статистику по полученным данным
         /// </summary>
-        public async Task ProcessAsync()
+        public Task ProcessAsync()
         {
-            await FetchIpInformationAsync();
             CalculateStatistics();
-        }
-
-        /// <summary>
-        /// Получить информацию по всем IP адресам
-        /// </summary>
-        private async Task FetchIpInformationAsync()
-        {
-            Console.WriteLine("🌐 Получение информации об IP адресах...");
-
-            foreach (var ip in _ipAddresses)
-            {
-                var ipInfo = await _ipInfoClient.GetInfoAsync(ip);
-                if (ipInfo != null)
-                {
-                    _ipInfoList.Add(ipInfo);
-                    Console.WriteLine($"  ✓ {ip} -> {ipInfo.Country}, {ipInfo.City}");
-                }
-                else
-                {
-                    Console.WriteLine($"  ✗ {ip} -> ошибка получения данных");
-                }
-            }
-
-            Console.WriteLine($"✓ Обработано {_ipInfoList.Count} из {_ipAddresses.Count()} IP адресов\n");
+            return Task.CompletedTask;
         }
 
         /// <summary>
@@ -81,13 +56,13 @@ namespace IpAnalyzer.Services
                 .GroupBy(ip => ip.Country)
                 .ToList();
 
-            var totalCount = _ipInfoList.Count;
+            var totalCount = _ipInfoList.Count();
 
             return countryGroups
                 .Select(group => new CountryIpDetails
                 {
                     CountryCode = group.Key,
-                    CountryName = group.Key, // Можно расширить для получения полного названия
+                    CountryName = group.Key,
                     Count = group.Count(),
                     Percentage = (group.Count() / (double)totalCount) * 100
                 })

@@ -46,11 +46,11 @@ RU                   |               2 |   18,18% |
 IpAnalyzer/
 ├── README.md                      ← Этот файл
 ├── appsettings.json               ← Конфигурация приложения
-├── ip_addresses.txt               ← Файл с IP адресами
 │
 ├── IpAnalyzer/
 │   ├── Program.cs                 ← Точка входа
 │   ├── IpAnalyzer.csproj
+│   ├── ip_addresses.txt               ← Файл с IP адресами
 │   │
 │   ├── Configuration/
 │   │   ├── AppConfig.cs

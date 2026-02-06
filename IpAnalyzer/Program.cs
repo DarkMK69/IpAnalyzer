@@ -54,15 +54,15 @@ namespace IpAnalyzer
 
                 foreach (var ip in ipAddresses)
                 {
-                    var ipInfo = await ipInfoClient.GetInfoAsync(ip);
-                    if (ipInfo != null)
+                    try
                     {
+                        var ipInfo = await ipInfoClient.GetInfoAsync(ip);
                         ipInfoList.Add(ipInfo);
                         Console.WriteLine($"  ✓ {ip} -> {ipInfo.Country}, {ipInfo.City}");
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        Console.WriteLine($"  ✗ {ip} -> ошибка получения данных");
+                        Console.WriteLine($"  ✗ {ip} -> {ex.Message}");
                     }
                 }
 

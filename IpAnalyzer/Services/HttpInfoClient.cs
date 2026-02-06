@@ -26,35 +26,31 @@ namespace IpAnalyzer.Services
         /// <summary>
         /// Получить информацию об IP адресе через API
         /// </summary>
-        public async Task<IpInfoDto?> GetInfoAsync(IPAddress ip)
+        public async Task<IpInfoDto> GetInfoAsync(IPAddress ip)
         {
             if (ip == null)
                 throw new ArgumentNullException(nameof(ip));
 
-            try
+            var url = $"{_baseUrl}/{ip}/json";
+            var response = await _httpClient.GetAsync(url);
+
+            if (!response.IsSuccessStatusCode)
             {
-                var url = $"{_baseUrl}/{ip}/json";
-                var response = await _httpClient.GetAsync(url);
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    Console.WriteLine($"❌ Ошибка при запросе для IP {ip}: {response.StatusCode}");
-                    return null;
-                }
-
-                var jsonContent = await response.Content.ReadAsStringAsync();
-                var ipInfo = JsonConvert.DeserializeObject<IpInfoDto>(jsonContent);
-
-                // Добавим задержку для соблюдения rate limit API
-                await Task.Delay(RequestDelayMs);
-
-                return ipInfo;
+                throw new HttpRequestException($"Ошибка при запросе для IP {ip}: {response.StatusCode}");
             }
-            catch (Exception ex)
+
+            var jsonContent = await response.Content.ReadAsStringAsync();
+            var ipInfo = JsonConvert.DeserializeObject<IpInfoDto>(jsonContent);
+
+            if (ipInfo == null)
             {
-                Console.WriteLine($"❌ Исключение при получении информации об IP {ip}: {ex.Message}");
-                return null;
+                throw new InvalidOperationException($"Не удалось десериализовать ответ для IP {ip}");
             }
+
+            // Добавим задержку для соблюдения rate limit API
+            await Task.Delay(RequestDelayMs);
+
+            return ipInfo;
         }
     }
 }

@@ -11,6 +11,6 @@ namespace IpAnalyzer.Interfaces
         /// <summary>
         /// Получить информацию об IP адресе
         /// </summary>
-        Task<IpInfoDto?> GetInfoAsync(IPAddress ip);
+        Task<IpInfoDto> GetInfoAsync(IPAddress ip);
     }
 }
